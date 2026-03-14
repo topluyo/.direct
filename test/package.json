@@ -1,0 +1,14 @@
+{
+  "name": "direct-socket-test",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node stress.js",
+    "test:1k": "node stress.js --connections=1000 --batch=50",
+    "test:5k": "node stress.js --connections=5000 --batch=100",
+    "test:10k": "node stress.js --connections=10000 --batch=200"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
