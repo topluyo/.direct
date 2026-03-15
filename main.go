@@ -300,12 +300,11 @@ func onlineHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			break
 		}
-
 		request := string(message)
-
 		parts := strings.Split(request, ",")
-		setConn(ws, userID, ToInt(parts[0]), ToInt(parts[1]))
-	
+		if(len(parts)>1){
+			setConn(ws, userID, ToInt(parts[0]), ToInt(parts[1]))
+		}
 	}
 }
 
