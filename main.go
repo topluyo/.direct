@@ -180,47 +180,6 @@ func broadcast(group_id int, channel_id int, user_id int, msg string) {
 	}
 }
 
-func _users(group_id int, channel_id int, user_id int) []*Connection {
-	txn := mdb.Txn(false)
-	defer txn.Abort()
-
-	var it memdb.ResultIterator
-	var err error
-
-	if channel_id != 0 && group_id != 0 {
-		key := fmt.Sprintf("%d,%d", channel_id, group_id)
-		it, err = txn.Get("connections", "channel_group", key)
-	} else if group_id != 0 {
-		it, err = txn.Get("connections", "group_id", group_id)
-	} else if channel_id != 0 {
-		it, err = txn.Get("connections", "channel_id", channel_id)
-	} else if user_id != 0 {
-		it, err = txn.Get("connections", "user_id", user_id)
-	} else {
-		it, err = txn.Get("connections", "id")
-	}
-
-	if err != nil {
-		return nil
-	}
-
-	var result []*Connection
-	for obj := it.Next(); obj != nil; obj = it.Next() {
-		c := obj.(*Connection)
-		if user_id != 0 && c.UserID != user_id {
-			continue
-		}
-		if group_id != 0 && c.GroupID != group_id {
-			continue
-		}
-		if channel_id != 0 && c.ChannelID != channel_id {
-			continue
-		}
-		result = append(result, c)
-	}
-	return result
-}
-
 // ── Helpers ──────────────────────────────────────────────────────
 
 func ToInt(number string) int {
@@ -259,15 +218,23 @@ func main() {
 	if testMode {
 		log.Println("⚠ TEST MODE — auth bypass aktif")
 	}
+  
+  
+  //db, err = sql.Open("mysql", "master:master@tcp(127.0.0.1:3306)/db")
+  db, err = sql.Open(
+    "mysql", 
+    "master:master@unix(/run/mysqld/mysqld.sock)/db?parseTime=true",
+  )
 
-	// MySQL bağlantısı (test modunda da açılır, kullanılmazsa sorun yok)
-	db, err = sql.Open("mysql", "master:master@tcp(127.0.0.1:3306)/db")
-	if err != nil && !testMode {
-		log.Fatal(err)
-	}
-	if db != nil {
-		defer db.Close()
-	}
+  db.SetMaxOpenConns(50)
+  db.SetMaxIdleConns(50)
+  db.SetConnMaxLifetime(5 * time.Minute)
+
+  if err != nil {
+      log.Fatal(err)
+  }
+  defer db.Close()
+
 
 	http.HandleFunc("/!direct-signal", func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
@@ -335,17 +302,10 @@ func onlineHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		request := string(message)
-		if strings.HasPrefix(request, ":") {
-			// Broadcast mesaj gönder
-			conn, ok := getConn(ws)
-			if ok {
-				broadcast(conn.GroupID, conn.ChannelID, 0, request[1:])
-			}
-		} else {
-			// Grup/kanal ayarla
-			parts := strings.Split(request, ",")
-			setConn(ws, userID, ToInt(parts[0]), ToInt(parts[1]))
-		}
+
+		parts := strings.Split(request, ",")
+		setConn(ws, userID, ToInt(parts[0]), ToInt(parts[1]))
+	
 	}
 }
 
